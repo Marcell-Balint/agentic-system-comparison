@@ -1,12 +1,10 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+from typing import List
 
 
 class HotelSearchRequest(BaseModel):
-    cityCode: str = Field(
-        ...,
-        min_length=3,
-        max_length=3,
-        description="City IATA code for the hotel location",
+    hotelIds: List[str] = Field(
+        ..., min_items=1, description="List of Amadeus property codes (8 characters)"
     )
     checkInDate: str = Field(
         ...,
@@ -18,13 +16,6 @@ class HotelSearchRequest(BaseModel):
         pattern=r"\d{4}-\d{2}-\d{2}",
         description="Check-out date in the format YYYY-MM-DD",
     )
-    number_of_adults: int = Field(..., gt=0, description="Number of adult guests")
-
-    @field_validator("checkInDate", "checkOutDate")
-    def validate_dates(cls, value, field):
-        from datetime import datetime
-
-        date = datetime.strptime(value, "%Y-%m-%d")
-        if date < datetime.now():
-            raise ValueError(f"{field.name} cannot be in the past")
-        return value
+    number_of_adults: int = Field(
+        ..., gt=0, le=9, description="Number of adult guests (1-9)"
+    )
