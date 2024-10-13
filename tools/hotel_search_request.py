@@ -10,12 +10,12 @@ class HotelSearchRequest(BaseModel):
     )
     checkInDate: str = Field(
         ...,
-        regex=r"\d{4}-\d{2}-\d{2}",
+        pattern=r"\d{4}-\d{2}-\d{2}",
         description="Check-in date in the format YYYY-MM-DD",
     )
     checkOutDate: str = Field(
         ...,
-        regex=r"\d{4}-\d{2}-\d{2}",
+        pattern=r"\d{4}-\d{2}-\d{2}",
         description="Check-out date in the format YYYY-MM-DD",
     )
     number_of_adults: int = Field(..., gt=0, description="Number of adult guests")

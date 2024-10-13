@@ -7,7 +7,7 @@ class DestinationRecommendationRequest(BaseModel):
     )
     departureDate: str = Field(
         ...,
-        regex=r"\d{4}-\d{2}-\d{2}",
+        pattern=r"\d{4}-\d{2}-\d{2}",
         description="Departure date in the format YYYY-MM-DD",
     )
     maxBudget: int = Field(
