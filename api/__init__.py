@@ -1,5 +1,6 @@
-from .api import TravelAPI
-from .destination_recommendation_request import DestinationRecommendationRequest
-from .flight_offer_request import FlightOfferRequest
-from .hotel_search_request import HotelSearchRequest
-from .hotel_search_by_city_request import HotelSearchByCityRequest
+from .api import (
+    find_flight_offers,
+    find_hotels_in_city,
+    check_hotel_availability,
+    recommend_destinations,
+)
