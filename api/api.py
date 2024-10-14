@@ -1,72 +1,167 @@
 import os
-
-from .destination_recommendation_request import DestinationRecommendationRequest
-from .flight_offer_request import FlightOfferRequest
-from .hotel_search_request import HotelSearchRequest
-from .hotel_search_by_city_request import HotelSearchByCityRequest
-
 from amadeus import Client, ResponseError
+from pydantic import BaseModel, Field, ValidationError, field_validator
+from typing import List
 
+# Create a global Amadeus client
+amadeus_client = Client(
+    client_id=os.getenv("AMADEUS_CLIENT_ID"),
+    client_secret=os.getenv("AMADEUS_CLIENT_SECRET"),
+)
 
-class TravelAPI:
-    def __init__(self) -> None:
-        self.amadeus_client = Client(
-            client_id=os.getenv("AMADEUS_CLIENT_ID"),
-            client_secret=os.getenv("AMADEUS_CLIENT_SECRET"),
+# Pydantic model for FlightOfferRequest
+class FlightOfferRequest(BaseModel):
+    originLocationCode: str = Field(
+        ..., min_length=3, max_length=3, description="IATA code for the origin airport"
+    )
+    destinationLocationCode: str = Field(
+        ..., min_length=3, max_length=3, description="IATA code for the destination airport"
+    )
+    departureDate: str = Field(
+        ..., regex=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD"
+    )
+    number_of_adults: int = Field(..., gt=0, description="Number of adult passengers")
+
+    @field_validator("departureDate")
+    def validate_departure_date(cls, value):
+        from datetime import datetime
+        dep_date = datetime.strptime(value, "%Y-%m-%d")
+        if dep_date < datetime.now():
+            raise ValueError("Departure date cannot be in the past")
+        return value
+
+# Find flight offers
+def find_flight_offers(data: dict) -> str:
+    """
+    Find flight offers based on the provided input parameters.
+
+    Args:
+        data (dict): A dictionary containing:
+            - originLocationCode (str): IATA code for the origin airport (3 characters).
+            - destinationLocationCode (str): IATA code for the destination airport (3 characters).
+            - departureDate (str): Departure date in the format YYYY-MM-DD.
+            - number_of_adults (int): Number of adult passengers (> 0).
+
+    Returns:
+        str: The response data from the Amadeus flight offer search API.
+    """
+    try:
+        flight_request = FlightOfferRequest(**data)
+        response = amadeus_client.shopping.flight_offers_search.get(
+            originLocationCode=flight_request.originLocationCode,
+            destinationLocationCode=flight_request.destinationLocationCode,
+            departureDate=flight_request.departureDate,
+            adults=flight_request.number_of_adults,
         )
+        return response.data
 
-    def find_flight_offers(
-        self,
-        flight_request: FlightOfferRequest,
-    ) -> str:
-        try:
-            response = self.amadeus_client.shopping.flight_offers_search.get(
-                originLocationCode=flight_request.originLocationCode,
-                destinationLocationCode=flight_request.destinationLocationCode,
-                departureDate=flight_request.departureDate,
-                adults=flight_request.number_of_adults,
-            )
-            print(response.data)
-        except ResponseError as error:
-            print(error)
+    except ValidationError as ve:
+        return f"Validation error: {ve}"
 
-    def find_hotels_in_city(self, hotel_request: HotelSearchByCityRequest) -> str:
-        try:
-            response = self.amadeus_client.reference_data.locations.hotels.by_city.get(
-                cityCode=hotel_request.cityCode
-            )
+    except ResponseError as error:
+        return f"API error: {error}"
 
-            print(response.data)
-        except ResponseError as error:
-            print(error)
 
-    def check_hotel_availability(
-        self,
-        hotel_request: HotelSearchRequest,  # Use Pydantic model for input validation
-    ) -> str:
-        try:
-            # Call the Amadeus API to search for hotel offers using only required parameters
-            response = self.amadeus_client.shopping.hotel_offers_search.get(
-                hotelIds=hotel_request.hotelIds,
-                checkInDate=hotel_request.checkInDate,
-                checkOutDate=hotel_request.checkOutDate,
-                adults=hotel_request.number_of_adults,
-            )
+# Pydantic model for HotelSearchByCityRequest
+class HotelSearchByCityRequest(BaseModel):
+    cityCode: str = Field(..., min_length=3, max_length=3, description="City IATA code to search for hotels")
 
-            # Print the response data (or process it as needed)
-            print(response.data)
-        except ResponseError as error:
-            print(f"Error: {error}")
+# Find hotels in a city
+def find_hotels_in_city(data: dict) -> str:
+    """
+    Find hotels in a city based on the provided input parameters.
 
-    def recommend_destinations(
-        self, recommendation_request: DestinationRecommendationRequest
-    ) -> str:
-        try:
-            response = self.amadeus_client.shopping.flight_destinations.get(
-                origin=recommendation_request.originLocationCode,
-                departureDate=recommendation_request.departureDate,
-                maxPrice=recommendation_request.maxBudget,
-            )
-            print(response.data)
-        except ResponseError as error:
-            print(error)
+    Args:
+        data (dict): A dictionary containing:
+            - cityCode (str): IATA code for the city (3 characters).
+
+    Returns:
+        str: The response data from the Amadeus hotel search by city API.
+    """
+    try:
+        hotel_request = HotelSearchByCityRequest(**data)
+        response = amadeus_client.reference_data.locations.hotels.by_city.get(
+            cityCode=hotel_request.cityCode
+        )
+        return response.data
+
+    except ValidationError as ve:
+        return f"Validation error: {ve}"
+
+    except ResponseError as error:
+        return f"API error: {error}"
+
+
+# Pydantic model for HotelSearchRequest
+class HotelSearchRequest(BaseModel):
+    hotelIds: List[str] = Field(..., min_items=1, description="List of Amadeus property codes")
+    checkInDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Check-in date in the format YYYY-MM-DD")
+    checkOutDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Check-out date in the format YYYY-MM-DD")
+    number_of_adults: int = Field(..., gt=0, le=9, description="Number of adult guests (1-9)")
+
+# Check hotel availability
+def check_hotel_availability(data: dict) -> str:
+    """
+    Check hotel availability based on the provided input parameters.
+
+    Args:
+        data (dict): A dictionary containing:
+            - hotelIds (list of str): List of Amadeus property codes.
+            - checkInDate (str): Check-in date in the format YYYY-MM-DD.
+            - checkOutDate (str): Check-out date in the format YYYY-MM-DD.
+            - number_of_adults (int): Number of adult guests (1-9).
+
+    Returns:
+        str: The response data from the Amadeus hotel availability search API.
+    """
+    try:
+        hotel_request = HotelSearchRequest(**data)
+        response = amadeus_client.shopping.hotel_offers_search.get(
+            hotelIds=hotel_request.hotelIds,
+            checkInDate=hotel_request.checkInDate,
+            checkOutDate=hotel_request.checkOutDate,
+            adults=hotel_request.number_of_adults,
+        )
+        return response.data
+
+    except ValidationError as ve:
+        return f"Validation error: {ve}"
+
+    except ResponseError as error:
+        return f"API error: {error}"
+
+
+# Pydantic model for DestinationRecommendationRequest
+class DestinationRecommendationRequest(BaseModel):
+    originLocationCode: str = Field(..., min_length=3, max_length=3, description="IATA code for the origin airport")
+    departureDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD")
+    maxBudget: int = Field(None, description="Maximum budget in local currency (optional)")
+
+# Recommend destinations
+def recommend_destinations(data: dict) -> str:
+    """
+    Recommend destinations based on the provided input parameters.
+
+    Args:
+        data (dict): A dictionary containing:
+            - originLocationCode (str): IATA code for the origin airport (3 characters).
+            - departureDate (str): Departure date in the format YYYY-MM-DD.
+            - maxBudget (int, optional): Maximum budget in local currency.
+
+    Returns:
+        str: The response data from the Amadeus flight destination recommendation API.
+    """
+    try:
+        recommendation_request = DestinationRecommendationRequest(**data)
+        response = amadeus_client.shopping.flight_destinations.get(
+            origin=recommendation_request.originLocationCode,
+            departureDate=recommendation_request.departureDate,
+            maxPrice=recommendation_request.maxBudget,
+        )
+        return response.data
+
+    except ValidationError as ve:
+        return f"Validation error: {ve}"
+
+    except ResponseError as error:
+        return f"API error: {error}"
