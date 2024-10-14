@@ -18,7 +18,7 @@ class FlightOfferRequest(BaseModel):
         ..., min_length=3, max_length=3, description="IATA code for the destination airport"
     )
     departureDate: str = Field(
-        ..., regex=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD"
+        ..., pattern=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD"
     )
     number_of_adults: int = Field(..., gt=0, description="Number of adult passengers")
 
@@ -95,8 +95,8 @@ def find_hotels_in_city(data: dict) -> str:
 # Pydantic model for HotelSearchRequest
 class HotelSearchRequest(BaseModel):
     hotelIds: List[str] = Field(..., min_items=1, description="List of Amadeus property codes")
-    checkInDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Check-in date in the format YYYY-MM-DD")
-    checkOutDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Check-out date in the format YYYY-MM-DD")
+    checkInDate: str = Field(..., pattern=r"\d{4}-\d{2}-\d{2}", description="Check-in date in the format YYYY-MM-DD")
+    checkOutDate: str = Field(..., pattern=r"\d{4}-\d{2}-\d{2}", description="Check-out date in the format YYYY-MM-DD")
     number_of_adults: int = Field(..., gt=0, le=9, description="Number of adult guests (1-9)")
 
 # Check hotel availability
@@ -134,7 +134,7 @@ def check_hotel_availability(data: dict) -> str:
 # Pydantic model for DestinationRecommendationRequest
 class DestinationRecommendationRequest(BaseModel):
     originLocationCode: str = Field(..., min_length=3, max_length=3, description="IATA code for the origin airport")
-    departureDate: str = Field(..., regex=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD")
+    departureDate: str = Field(..., pattern=r"\d{4}-\d{2}-\d{2}", description="Departure date in the format YYYY-MM-DD")
     maxBudget: int = Field(None, description="Maximum budget in local currency (optional)")
 
 # Recommend destinations
