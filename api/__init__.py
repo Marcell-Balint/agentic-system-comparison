@@ -3,4 +3,8 @@ from .api import (
     find_hotels_in_city,
     check_hotel_availability,
     recommend_destinations,
+    FlightOfferRequest,
+    HotelSearchRequest,
+    HotelSearchByCityRequest,
+    DestinationRecommendationRequest
 )
